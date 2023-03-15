@@ -1,12 +1,10 @@
-package com.scalamandra.aio
+package com.scalamandra.concurrent
 
 trait Scheduler:
   
-  private[aio] def stealTime(): Boolean
+  private[concurrent] def stealTime(): Boolean
 
-  private[aio] def spinThreshold: Int
-
-  private[aio] def schedule[T](fiber: Fiber[T]): Unit
+  private[concurrent] def schedule[T, E](fiber: Fiber[T, E]): Unit
   
   def shutdown(): Unit
 
@@ -17,16 +15,14 @@ object Scheduler:
   private val default: Scheduler = new:
     import scala.collection.mutable
     private var working = true
-    private val queue = mutable.Queue.empty[Fiber[?]]
+    private val queue = mutable.Queue.empty[Fiber[?, ?]]
 
     def stealTime(): Boolean =
       if(working && queue.nonEmpty)
         queue.dequeue().run(this); true
       else false
     
-    def spinThreshold: Int = 16
-    
-    def schedule[T](fiber: Fiber[T]): Unit =
+    def schedule[T, E](fiber: Fiber[T, E]): Unit =
       if(working) queue.enqueue(fiber)
     
     def shutdown(): Unit = working = false

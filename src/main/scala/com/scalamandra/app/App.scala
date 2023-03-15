@@ -1,15 +1,15 @@
 package com.scalamandra.app
 
-import com.scalamandra.aio.*
+import com.scalamandra.concurrent.*
 
 object App:
 
   def main(args: Array[String]): Unit =
     Scheduler {
-      async {
-        println("Hello!")
-      }
+      IO.failed("Hello")
+        .onError(_ + " World!")
+        .map(println)
+        .unsafeRunThrow()
     }
-    
 
 end App

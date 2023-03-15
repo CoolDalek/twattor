@@ -2,7 +2,7 @@ import scala.scalanative.build._
 
 ThisBuild / version := "0.1.0-SNAPSHOT"
 
-ThisBuild / scalaVersion := "3.2.1"
+ThisBuild / scalaVersion := "3.2.2"
 
 lazy val root = (project in file("."))
   .enablePlugins(ScalaNativePlugin)
@@ -12,5 +12,12 @@ lazy val root = (project in file("."))
       _.withLTO(LTO.thin)
         .withMode(Mode.releaseFull)
         .withGC(GC.commix)
-    }
+    },
+    scalacOptions ++= Seq(
+      "-explain",
+      "-explain-types",
+      "-deprecation",
+      "-feature",
+      "-source:future",
+    ),
   )

@@ -50,6 +50,8 @@ object State:
       def isCanceled: Boolean = false
     end Done
 
+    val UnitDone: Result[Unit, Nothing] = Done(())
+
     case class Fail[E](value: E) extends Result[Nothing, E]:
       def recover[R >: Nothing](recover: PartialFunction[E, R]): Result[R, E] =
         if recover.isDefinedAt(value)

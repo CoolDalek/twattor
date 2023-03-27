@@ -5,7 +5,7 @@ import com.scalamandra.concurrent.*
 object App:
 
   def main(args: Array[String]): Unit =
-    Scheduler {
+    Scheduler.singleThreaded {
       IO.failed("Hello")
         .onError(_ + " World!")
         .map(println)

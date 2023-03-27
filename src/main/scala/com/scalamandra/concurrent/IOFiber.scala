@@ -9,6 +9,12 @@ object IOFiber:
       sch => self.join()(using sch)
     )
 
+    def cancel: IO[Unit, Nothing] = IO.Effect( sch =>
+      self.cancel()
+      self.join()(using sch)
+      Result.UnitDone
+    )
+
   }
 
   inline def wrap[T, E](fiber: Fiber[T, E]): IOFiber[T, E] = fiber

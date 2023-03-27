@@ -1,6 +1,7 @@
 package com.scalamandra.concurrent
 
 import scala.collection.mutable
+import scala.compiletime.*
 import scala.annotation.*
 import IO.*
 
@@ -12,6 +13,7 @@ class IORunLoop[T, E](
                      ):
   private var loop = false
   private val finalizers = mutable.ArrayBuffer.empty[IO[Unit, Nothing]]
+  private var completedWith: Result[T, E] = uninitialized
   type AnyFlatMap = FlatMap[Any, Any, Any, Any]
   type AnyMap = Map[Any, Any, Any, Any]
 
@@ -19,7 +21,10 @@ class IORunLoop[T, E](
   private def tryComplete(value: Result[Any, Any]): Unit =
     if continuations.isEmpty then
       loop = false
-      fiber.state = value.asInstanceOf[Result[T, E]]
+      completedWith = fiber.state.compareAndExchange(
+        State.Running,
+        value.asInstanceOf[Result[T, E]],
+      ).asInstanceOf[Result[T, E]]
     else
       val bind = continuations.pop()
       (bind.tag: @switch) match
@@ -37,22 +42,27 @@ class IORunLoop[T, E](
   def run(): Unit =
     loop = true
     while loop do
-      ((current.tag: Int): @switch) match
-        case ComputedTag | ThunkTag =>
-          tryComplete(
-            current.asInstanceOf[Compute](scheduler)
-          )
-        case FlatMapTag | MapTag =>
-          val bind = current.asInstanceOf[Bind]
-          current = bind.unlink()
-          continuations.push(bind.erase)
-        case OnCancelTag =>
-          val onCancel = current.asInstanceOf[OnCancel[Any, Any]]
-          current = onCancel.prev
-          finalizers.addOne(onCancel.finalizer)
-      end match
+      if fiber.state.getAcquire != Result.Cancelled then
+        ((current.tag: Int): @switch) match
+          case ComputedTag | ThunkTag =>
+            tryComplete(
+              current.asInstanceOf[Compute](scheduler)
+            )
+          case FlatMapTag | MapTag =>
+            val bind = current.asInstanceOf[Bind]
+            current = bind.unlink()
+            continuations.push(bind.erase)
+          case OnCancelTag =>
+            val onCancel = current.asInstanceOf[OnCancel[Any, Any]]
+            current = onCancel.prev
+            finalizers.addOne(onCancel.finalizer)
+        end match
+      else
+        loop = false
+        completedWith = Result.Cancelled
+      end if
     end while
-    if fiber.state.asInstanceOf[Result[T, E]].isCanceled then
+    if completedWith.isCanceled then
       finalizers.map(_.unsafeRunAsync()(using scheduler))
         .foreach(_.join()(using scheduler))
   end run

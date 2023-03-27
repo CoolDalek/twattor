@@ -12,7 +12,7 @@ trait Scheduler:
   
 object Scheduler:
   
-  private val default: Scheduler = new:
+  private val singleThreaded: Scheduler = new:
     import scala.collection.mutable
     private var working = true
     private val queue = mutable.Queue.empty[Fiber[?, ?]]
@@ -29,12 +29,25 @@ object Scheduler:
     
     def shuttingDown: Boolean = !working
     
-  end default
-  
-  def apply[T](app: Scheduler ?=> T): Unit =
-    app(using default)
-    default.stealTime()
-    default.shutdown()
-  end apply
-  
+  end singleThreaded
+
+  def singleThreaded[T](app: Scheduler ?=> T): Unit =
+    try
+      app(using singleThreaded)
+      singleThreaded.stealTime()
+    finally singleThreaded.shutdown()
+  end singleThreaded
+
+  private val multithreaded: Scheduler = new:
+
+    def stealTime(): Boolean = ???
+
+    def schedule[T, E](fiber: Fiber[T, E]): Unit = ???
+
+    def shutdown(): Unit = ???
+
+    def shuttingDown: Boolean = ???
+
+  end multithreaded
+
 end Scheduler
